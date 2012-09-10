@@ -1,0 +1,23 @@
+Source: rtkgps
+Section: misc
+Priority: extra
+Maintainer: Placido Revilla <placido.revilla@gmail.com>
+Build-Depends: debhelper (>= 8.0.0), autotools-dev, libbluetooth-dev, python
+Standards-Version: 3.9.2
+Homepage: http://wohlberg.net/public/software/misc/rtkgps/
+Vcs-Git: git://github.com/placidorevilla/rtkgps.git
+Vcs-Browser: https://github.com/placidorevilla/rtkgps
+
+Package: rtkgps
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
+Description: Configuration application for some models of Royaltek GPS loggers
+ RtkGPS allows device configuration, status reporting, and
+ log downloading for some models of Royaltek GPS loggers;
+ this software is primarily designed to support the RBT-2300,
+ but has also been tested on the RGM-3800, which appears to
+ share the same communication protocol. RtkGPS provides a
+ command line interface (unlike some of the other software
+ for this device, which is GUI based), but should work on
+ any Linux platform, including portable devices such as the
+ Nokia 770/800 series.
