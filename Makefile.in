@@ -1,0 +1,127 @@
+# Makefile for RtkGPS
+# Most recent modification: 21 May 2010
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+datarootdir = @datarootdir@
+datadir = @datadir@/@PACKAGE_TARNAME@
+bindir = @bindir@
+mandir = @mandir@
+
+GEOIDCOR=@GEOIDCOR@
+GGRDFILE=ww15mgh.dat
+GGRDPATH=$(datadir)/$(GGRDFILE)
+
+SHELL = @SH@
+PYTHON = @PYTHON@
+RM = @RM@
+BZCAT = @BZCAT@
+INSTALL = @INSTALL@
+
+CC=@CC@
+DEFS=@DEFS@ -DGGRDPATH=\"$(GGRDPATH)\"
+CFLAGS=@CFLAGS@
+LDFLAGS=@LDFLAGS@
+LIBS=@LIBS@
+
+MODSRC = serial.c rtkcom.c gpsfmt.c
+MODHDR = $(MODSRC:%.c=%.h)
+MODOBJ = $(MODSRC:%.c=%.o)
+EXESRC = rtkgps.c
+EXEOBJ = $(EXESRC:%.c=%.o)
+EXE = $(EXESRC:%.c=%)
+PYEXE = rtknmea
+MANSRC = rtkgps.1 rtknmea.1
+
+DISTFILES = configure.ac configure Makefile.in install-sh \
+            README INSTALL LICENSE NEWS ChangeLog $(PYEXE) \
+	    $(GGRDFILE).bz2 $(MODSRC) $(MODHDR) $(EXESRC) $(MANSRC)
+
+PKGNAME = @PACKAGE_TARNAME@
+PKGVRSN = @PACKAGE_VERSION@
+DISTDIR = ${PKGNAME}-${PKGVRSN}
+DISTTGZ = dist/${DISTDIR}.tar.gz
+
+.PHONY: all clean distclean install uninstall dist listing
+
+all: ${EXE}
+
+${EXE}: ${MODOBJ} ${EXEOBJ}
+
+.c.o:
+	${CC} -c $< ${CFLAGS} ${DEFS}
+
+.o: 
+	${CC} -o $@  $< ${MODOBJ} ${LDFLAGS}
+
+serial.o: serial.h serial.c Makefile
+rtkcom.o: rtkcom.h rtkcom.c serial.h Makefile
+gpsfmt.o: gpsfmt.h gpsfmt.c rtkcom.h Makefile
+rtkgps.o: rtkgps.c serial.h rtkcom.h gpsfmt.h Makefile
+
+
+clean:
+	@${RM} -f ${EXE} ${EXEOBJ} ${MODOBJ} ${MANHTML} *.o
+
+distclean: clean
+	@${RM} -f config.* Makefile Makefile.bak; ${RM} -rf dist
+
+install:
+	@echo "Installing executable(s) in ${DESTDIR}${bindir}";\
+	if [ ! -d ${DESTDIR}${bindir} ];\
+	  then ${INSTALL} -d ${DESTDIR}${bindir};\
+	fi;\
+	${INSTALL} -m 755 ${EXE} ${DESTDIR}${bindir};\
+	if [ "${PYTHON}" != '' ]; then\
+	  for pyexe in ${PYEXE}; do\
+	    sed -e 's+/usr/bin/python+${PYTHON}+' $$pyexe > $$pyexe.tmp;\
+	    ${INSTALL} -m 755 $$pyexe.tmp ${DESTDIR}${bindir}/$$pyexe;\
+	    ${RM} -f $$pyexe.tmp;\
+	  done;\
+	fi;\
+	if [ "${GEOIDCOR}" = "yes" ]; then\
+	  echo "Installing data in ${DESTDIR}${datadir}";\
+	  if [ ! -d ${DESTDIR}${datadir} ];\
+	    then ${INSTALL} -d ${DESTDIR}${datadir};\
+	  fi;\
+	  ${BZCAT} ${GGRDFILE}.bz2 > ${DESTDIR}${GGRDPATH};\
+	fi;\
+	echo "Installing man page in ${DESTDIR}${mandir}";\
+	if [ ! -d ${DESTDIR}${mandir} ]; then\
+	  ${INSTALL} -d ${DESTDIR}${mandir};\
+	fi;\
+	if [ ! -d ${DESTDIR}${mandir}/man1 ];\
+	  then ${INSTALL} -d ${DESTDIR}${mandir}/man1;\
+	fi;\
+	${INSTALL} -m 644 ${MANSRC} ${DESTDIR}${mandir}/man1
+
+uninstall:
+	@echo "Uninstalling executable(s) in ${DESTDIR}${bindir}";\
+	for exe in ${EXE} ${PYEXE}; do\
+	  ${RM} -f ${DESTDIR}${bindir}/$$exe;\
+	done;\
+	if [ "${GEOIDCOR}" = "yes" ]; then\
+	  echo "Uninstalling data in ${DESTDIR}${datadir}";\
+	  ${RM} -f ${DESTDIR}${GGRDPATH};\
+	  rmdir ${DESTDIR}${datadir};\
+	fi;\
+	echo "Uninstalling man pages in ${mandir}";\
+	for man in ${MANSRC}; do\
+	  ${RM} -f ${DESTDIR}${mandir}/man1/$$man;\
+	done
+
+dist: ${DISTTGZ}
+
+${DISTTGZ}: ${DISTFILES}
+	@${RM} -rf ${DISTTGZ} dist/${DISTDIR};\
+	mkdir -p dist/${DISTDIR};\
+	(tar cf - ${DISTFILES}) | (cd dist/${DISTDIR} && tar xfp -);\
+	(cd dist; tar -cf ${DISTDIR}.tar ./${DISTDIR};\
+	gzip -9 ${DISTDIR}.tar);\
+	${RM} -rf dist/${DISTDIR}
+
+listing:
+	@-enscript -E --word-wrap --header='$$N|$$D{%F}|Page $$% of $$=' \
+	   -jU2 -o listing.ps configure.ac Makefile.in README NEWS \
+	   ChangeLog rtkgps.1 *.h *.c 
+

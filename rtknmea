@@ -1,0 +1,539 @@
+#! /usr/bin/python
+# -*- coding: utf8 -*-
+
+# ----------------------------------------------------------------------------
+#
+#  This utility collates and converts NMEA data output by rtkgps
+#
+#  Copyright © 2010 Brendt Wohlberg <osspkg@gmail.com>
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of version 2 of the GNU General Public License at
+#  http://www.gnu.org/licenses/gpl-2.0.txt.
+#
+#  This program is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  General Public License for more details.
+#
+#  Most recent modification: 24 May 2010
+#
+# ----------------------------------------------------------------------------
+
+import sys
+import os
+import getopt
+import re
+import datetime
+from operator import xor
+from math import floor, radians, sqrt, cos, sin, atan2
+
+# ----------------------------------------------------------------------------
+# Custom exception class
+# ----------------------------------------------------------------------------
+class RtkNMEAException(Exception):
+    def __init__(self, etype, evalue):
+        self.etype = etype
+        self.evalue = evalue
+    def __str__(self):
+        if self.etype == 'DuplicateFile':
+            return "rtknmea: Input file list contains duplicate files\n"\
+                   "         "+self.evalue[0]+" and "+self.evalue[1]
+        elif self.etype == 'OutputExists':
+            return "rtknmea: Output file "+self.evalue[0]+" exists"
+        else:
+            return self.etype+":"+','.join(map(str,self.evalue))
+
+
+
+# ----------------------------------------------------------------------------
+# Main program 
+# ----------------------------------------------------------------------------
+def main(argv):
+
+    # Initialise command line flags and properties
+    mode = None
+    opth = None
+    owfg = False
+    tmin = None
+    dmin = None
+    # Parse command line
+    try:                                
+        opts, args = getopt.getopt(argv, "hcgt:d:o:n", ["help"])
+    except getopt.GetoptError:           
+        usage()                          
+        sys.exit(1)
+    for opt, arg in opts:
+        if opt in ("-h", "--help"):
+            usage()                     
+            sys.exit(0)
+        elif opt == '-c':
+            if mode == None:
+                mode = 'collate'
+            else:
+                usage()                     
+                sys.exit(1)
+        elif opt == '-g':
+            if mode == None:
+                mode = 'gpxconv'
+            else:
+                usage()                     
+                sys.exit(1)
+        elif opt == '-t':
+            tmin = int(arg)
+        elif opt == '-d':
+            dmin = float(arg)
+        elif opt == '-o':
+            opth = arg
+        elif opt == '-n':
+            owfg = True
+    # Ensure one of -c or -g selected, and at least one input file specified
+    if mode == None or len(args) < 1:
+        usage()                          
+        sys.exit(1)
+    # Ensure -t or -d not specified together with -c
+    if mode == 'collate' and (tmin != None or dmin != None):
+        usage()                          
+        sys.exit(1)
+    # Ensure output path is a directory (if specified) in collate mode
+    if mode == 'collate' and opth != None and not os.path.isdir(opth):
+        print >> sys.stderr, "rtknmea: Output path "+opth+" is not a directory"
+        sys.exit(1)
+    # Ensure that all input files exist and are readable
+    for ifnm in args:
+        if not os.access(ifnm, os.F_OK):
+            print >> sys.stderr, "rtknmea: Input file "+ifnm+" not found"
+            sys.exit(1)
+        if not os.access(ifnm, os.R_OK):
+            print >> sys.stderr, "rtknmea: Input file "+ifnm+" not readable"
+            sys.exit(1)
+    # Call function implementing requested operation
+    try:
+        if mode == 'collate':
+            cmdcollate(opth, owfg, args)
+        else:
+            cmdgpxconv(opth, owfg, tmin, dmin, args)
+    except RtkNMEAException, (dfe):
+        print >> sys.stderr, dfe
+        exit(1)  
+
+    # Normal termination
+    sys.exit(0)
+
+
+# ----------------------------------------------------------------------------
+# Print usage details
+# ----------------------------------------------------------------------------
+def usage():
+    ustr = """usage: rtknmea -h
+       rtknmea -c [-n] [-o path] infile [infile] ...
+       rtknmea -g [-n] [-o path] [-t tmin] [-d dmin] infile [infile] ...
+
+           -h         Display usage information
+           -n         Allow overwriting of existing files on output
+           -o path    Specify output path
+           -c         Collate mode
+           -g         GPX convert mode
+           -t tmin    Specify minimum time between output samples
+           -d dmin    Specify minimum distance between output samples"""
+    print ustr
+
+
+# ----------------------------------------------------------------------------
+# Perform collate command
+# ----------------------------------------------------------------------------
+def cmdcollate(opth, owfg, iflst):
+
+    # Initialise main date/time dictionary
+    dtdct = {};
+    # Iterate over all input files
+    for ifnm in iflst:
+        # Extract date and time of first fix in current input file
+        [d,t] = logstart(ifnm)
+        # Check whether valid date and time extracted
+        if d == None or t == None:
+            print >> sys.stderr, "rtknmea: Could not extract valid date " +\
+                  "and time from input file " + ifnm
+        else:
+            # Initialise date dictionary if current date not previously
+            # encountered
+            if not(dtdct.has_key(d)):
+                dtdct[d] = {}
+            # Check for duplicate input files (according to first fix
+            # date/time)
+            if dtdct[d].has_key(t):
+                raise RtkNMEAException('DuplicateFile', [dtdct[d][t], ifnm])
+            else:
+                # Associate current input filename with date and time
+                # of first fix
+                dtdct[d][t] = ifnm
+
+    # Iterate over all dates
+    for d in sorted(dtdct.keys()):
+        # Construct collated output filename from date
+        if opth == None:
+            ofnm = ''
+        else:
+            ofnm = opth + '/'
+        ofnm += d + ".nmea"
+        # If overwrite not requested, check whether output file exists
+        # and throw exception if it does
+        if not(owfg) and os.access(ofnm, os.F_OK):
+             raise RtkNMEAException('OutputExists', [ofnm])
+        # Open output file for writing
+        ofo = open(ofnm, "wt")
+        # Iterate over all times for current date
+        for t in sorted(dtdct[d].keys()):
+            # Open input file for current date and time
+            ifo = open(dtdct[d][t], "rt")
+            # Copy all lines in current input to current output
+            while 1:
+                line = ifo.readline().rstrip()
+                if not line:
+                    break
+                print >> ofo, line
+            # Close current input file
+            ifo.close()
+        # Close current output file
+        ofo.close()
+
+
+# ----------------------------------------------------------------------------
+# Perform gpxconv command
+# ----------------------------------------------------------------------------
+def cmdgpxconv(opth, owfg, tmin, dmin, iflst):
+
+    # Construct output filename
+    if opth == None or os.path.isdir(opth):
+        if opth == None:
+            ofnm = ''
+        else:
+            ofnm = opth + '/'
+        ofnm += re.sub('\.nmea', '', iflst[0]) + '.gpx'
+    else:
+        ofnm = opth
+
+    # Construct output filename if necessary
+    if ofnm == None:
+        ofnm = re.sub('\.nmea', '', iflst[0]) + '.gpx'
+    # Check for overwriting existing output file
+    if not(owfg) and os.access(ofnm, os.F_OK):
+        raise RtkNMEAException('OutputExists', [ofnm])
+    # Parse all NMEA files into single list of fixes
+    fxl = []
+    for ifnm in iflst:
+        fxl.extend(parsenmea(ifnm))
+    # Compute time differences between consecutive fixes
+    fxl = computetimediff(fxl)
+    # Split fix list into track segments
+    tkl = tracksplit(fxl)
+    # Apply distance filter if requested
+    if dmin != None:
+        tkl = distfilter(tkl, dmin)
+    # Apply time filter if requested
+    if tmin != None:
+        tkl = timefilter(tkl, tmin)
+    # Write GPX file
+    writegpx(ofnm, tkl)
+
+
+# ----------------------------------------------------------------------------
+# Get date and time of first fix (actually first GPRMC line) in NMEA file
+# ----------------------------------------------------------------------------
+def logstart(fnm):
+
+    f = open(fnm, "rt");
+    ln = f.readline()
+    while ln != '':
+        # Look for GPRMC sentence
+        lcm = re.match("\$GPRMC,([^\*]*)\*([0-9,A-F]{2})", ln)
+        if lcm != None and len(lcm.groups()) == 2:
+            # Extract date and time from GPRMC sentence
+            nmc = lcm.group(1).split(',')
+            d = "20"+nmc[8][4:6]+nmc[8][2:4]+nmc[8][0:2]
+            t = nmc[0]
+            # Return reformatted date and time
+            return [d, t]
+        ln = f.readline()
+    f.close()
+    return [None, None]
+
+
+# ----------------------------------------------------------------------------
+# Parse an NMEA file (GPGGA and GPRMC sentences only)
+# ----------------------------------------------------------------------------
+def parsenmea(fnm):
+    f = open(fnm, "rt");
+
+    fxlst = [];
+    fxr = {'time':''} 
+    for line in f.readlines():
+        # Look for valid sentences with initial $ and final * and checksum
+        lcm = re.match("\$([^\*]*)\*([0-9,A-F]{2})", line)
+        if lcm != None and len(lcm.groups()) == 2:
+            # Compare provided checksum with checksum for sentence content
+            chk = reduce(xor, map(ord, lcm.group(1)))
+            # Print warning on checksum mismatch
+            if chk != int('0x' + lcm.group(2), 16):
+                print >> sys.stderr, "rtknmea: Checksum error in line " +\
+                      line.rstrip() + " (expected *%02X)" % chk
+            # Extract comma-delimited fields of sentence
+            nmc = lcm.group(1).split(',')
+            # Ensure that data for GPGGA and GPRMC with the same time
+            # field are appended to the same fix record
+            if nmc[0] in ('GPGGA', 'GPRMC') and nmc[1] != fxr['time']:
+                if fxr['time'] != '':
+                    fxlst.append(fxr)
+                    fxr = {'time':nmc[1]}
+                else:
+                    fxr['time'] = nmc[1]
+            if nmc[0] == 'GPGGA':
+                # Extract fields of GPGGA sentence
+                fxr['altv'] = nmc[9]
+                fxr['altu'] = nmc[10]
+                fxr['ghtv'] = nmc[11]
+                fxr['ghtu'] = nmc[12]
+            elif nmc[0] == 'GPRMC':
+                # Extract fields of GPRMC sentence
+                fxr['latv'] = nmc[3]
+                fxr['lath'] = nmc[4]
+                fxr['lngv'] = nmc[5]
+                fxr['lngh'] = nmc[6]
+                fxr['velc'] = nmc[7]
+                fxr['date'] = nmc[9]
+                # Convert geographic coordinates to signed, fractional degrees
+                fxr['dlat'] = degsectodeg(float(fxr['latv']), fxr['lath'])
+                fxr['dlng'] = degsectodeg(float(fxr['lngv']), fxr['lngh'])
+        else:
+            # Print warning on invalid sentence format
+            if re.match("\S+", line) != None:
+                print >> sys.stderr, "rtknmea: Error parsing line " + \
+                      line.rstrip()
+    if fxr['time'] != '':
+        fxlst.append(fxr);
+    f.close()
+    return fxlst
+
+
+# ----------------------------------------------------------------------------
+# Write GPS data in GPX format
+# ----------------------------------------------------------------------------
+def writegpx(ofnm, tkl):
+    gpxd = """<?xml version="1.0"?>
+<gpx version="1.0" creator="rtknmea"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.topografix.com/GPX/1/0"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd">"""
+
+    # Open output file and print GPX header to it
+    f = open(ofnm, "wt");
+    print >> f, gpxd
+    print >> f, '  <trk>'
+    # Iterate over all track segments in track segment list tkl
+    for tk in tkl:
+        print >> f, '    <trkseg>'
+        # Iterate over all fixes in current segment
+        for fx in tk:
+            # Append current fix data to file in GPX format
+            dstr = '20'+fx['date'][4:6]+'-'+fx['date'][2:4]+'-'+fx['date'][0:2]
+            tstr = fx['time'][0:2]+':'+fx['time'][2:4]+':'+fx['time'][4:6]
+            print >> f, '      <trkpt lat="%.9f" lon="%.9f">' % \
+                  (fx['dlat'], fx['dlng'])
+            if fx['altv'] != '':
+                print >> f, '        <ele>%s</ele>' % fx['altv']
+            print >> f, '        <time>%sT%sZ</time>' % (dstr, tstr)
+            if fx['velc'] != '':
+                vlct = 0.514444444*float(fx['velc'])
+                print >> f, '        <speed>%f</speed>' % vlct
+            if fx['ghtv'] != '':
+                print >> f, '        <geoidheight>%s</geoidheight>'\
+                      % fx['ghtv']
+            print >> f, '      </trkpt>'
+        print >> f, '    </trkseg>'
+    print >> f, '  </trk>'
+    print >> f, '</gpx>'
+
+
+# ----------------------------------------------------------------------------
+# Split list of fixes into distinct track segments
+# ----------------------------------------------------------------------------
+def tracksplit(fxl):
+    # Define time factor for detection of new track segment: a new
+    # segment is considered to start at a fix for which the time
+    # difference from the preceeding fix is more than the time factor
+    # multiplied by the same time differences for the preceeding and
+    # following fix
+    tf = 10
+    # Initialise track segment list
+    tkl = []
+    # Split test for second fix, which can only compare time
+    # difference with the following fix
+    if (len(fxl) > 2) and (fxl[1]['timedelta'] > tf*fxl[2]['timedelta']):
+        tkl.append(fxl[0:1])
+        i0 = 1
+    else:
+        i0 = 0
+    # Iterate over fixes in the fix list, applying the split test for each
+    for i in range(2,len(fxl)-1):
+        f = fxl[i]
+        if (fxl[i]['timedelta'] > tf*fxl[i-1]['timedelta']) and\
+           (fxl[i]['timedelta'] > tf*fxl[i+1]['timedelta']):
+            tkl.append(fxl[i0:i])
+            i0 = i
+    # Split test for penultimate fix, which can only compare time
+    # difference with the preceeding fix
+    if (len(fxl) > 2) and (fxl[-1]['timedelta'] > tf*fxl[-2]['timedelta']):
+        tkl.append(fxl[i0:-1])
+        tkl.append(fxl[-1:])
+    else:
+        tkl.append(fxl[i0:])
+    return tkl
+
+
+# ----------------------------------------------------------------------------
+# Apply distance filter to track segment list, omitting fixes with a
+# distance less than dmin from the preceeding retained fix
+# ----------------------------------------------------------------------------
+def distfilter(tkl, dmin):
+    # Iterate over each segment in track segment list
+    for tki, tk in enumerate(tkl):
+        # Initialise filtered version of current segment
+        tkf = [tk[0]]
+        i0 = 1
+        i1 = i0
+        # Loop main index variable over fix indices
+        while i0 < len(tk):
+            # Initialise distance accumulator
+            da = 0.0
+            # While accumulated distance is below threshold (and end
+            # of current segment not reached), accumulate distance
+            # increment to the next fix and increment secondary fix
+            # index
+            while (da < dmin) and (i1 < len(tk)):
+                da += gcdist(tk[i1-1],tk[i1])
+                i1 += 1;
+            # If accumulated distance exceeds threshold, append fix at
+            # secondary index to filtered segment
+            if da >= dmin:
+                tkf.append(tk[i1-1])
+            i0 = i1
+        # Replace unfiltered segment with filtered segment
+        tkl[tki] = tkf
+    return tkl
+
+
+# ----------------------------------------------------------------------------
+# Apply time filter to track segment list, omitting fixes with a
+# time difference less than tmin from the preceeding retained fix
+# ----------------------------------------------------------------------------
+def timefilter(tkl, tmin):
+    # Initialise filtered version of current segment
+    for tki, tk in enumerate(tkl):
+        # Initialise filtered version of current segment
+        tkf = [tk[0]]
+        i0 = 1
+        # Loop main index variable over fix indices
+        while i0 < len(tk):
+            # Initialise time accumulator
+            tda = tk[i0]['timedelta']
+            i1 = i0
+            # While accumulated time difference is below threshold
+            # (and end of current segment not reached), accumulate
+            # time increment to the next fix and increment secondary
+            # fix index
+            while (tda < tmin) and (i1 < len(tk)):
+                tda += tk[i1]['timedelta']
+                i1 += 1;
+            # If accumulated time exceeds threshold, append fix at
+            # secondary index to filtered segment
+            if i1 < len(tk):
+                tkf.append(tk[i1])
+            i0 = i1 + 1
+        # Replace unfiltered segment with filtered segment
+        tkl[tki] = tkf
+    return tkl
+    
+
+# ----------------------------------------------------------------------------
+# Compute time differences between consecutive fixes in a list of fixes
+# ----------------------------------------------------------------------------
+def computetimediff(fxl):
+    f0 = fxl[0]
+    for i, f in enumerate(fxl[1:]):
+        t = timediff(f0,f)
+        fxl[i+1]['timedelta'] = t
+        f0 = f
+    return fxl
+
+
+# ----------------------------------------------------------------------------
+# Convert degrees*100+seconds to degrees
+# ----------------------------------------------------------------------------
+def degsectodeg(ds,hstr):
+    d = floor(ds / 100)
+    s = ds % 100
+    if hstr in ('S', 'W'):
+        sgn = -1
+    else:
+        sgn = 1
+    return sgn*(d + (s / 60.0))
+
+
+# ----------------------------------------------------------------------------
+# Compute time difference in seconds between two fixes
+# ----------------------------------------------------------------------------
+def timediff(f0,f1):
+    td = None
+    if f0['date'] == f1['date']:
+        # When the two dates are the same, the time difference is
+        # easily computed using only the time fields
+        t0 = int(f0['time'][0:2])*3600+int(f0['time'][2:4])*60+\
+             int(f0['time'][4:6])
+        t1 = int(f1['time'][0:2])*3600+int(f1['time'][2:4])*60+\
+             int(f1['time'][4:6])
+        td = t1 - t0
+    else:
+        # If the dates differ, use the datetime class to compute the
+        # time difference based on both dates and times
+        dt0 = datetime.datetime(2000+int(f0['date'][4:6]),\
+                                int(f0['date'][2:4]),\
+                                int(f0['date'][0:2]),\
+                                int(f0['time'][0:2]),\
+                                int(f0['time'][2:4]),\
+                                int(f0['time'][4:6]))
+        dt1 = datetime.datetime(2000+int(f1['date'][4:6]),\
+                                int(f1['date'][2:4]),\
+                                int(f1['date'][0:2]),\
+                                int(f1['time'][0:2]),\
+                                int(f1['time'][2:4]),\
+                                int(f1['time'][4:6]))
+        dtt = dt1 - dt0
+        td = dtt.days*86400 + dtt.seconds
+    return td
+
+
+# ----------------------------------------------------------------------------
+# Compute great circle distance in metres between two fixes
+# ----------------------------------------------------------------------------
+def gcdist(f0,f1):
+    # See http://www.movable-type.co.uk/scripts/latlong.html
+    R = 6.371009e6
+    lat0 =  radians(f0['dlat'])
+    lat1 =  radians(f1['dlat'])
+    dltlat = radians(f1['dlat'] - f0['dlat'])
+    dltlng = radians(f1['dlng'] - f0['dlng'])
+    a = sin(dltlat/2.0)**2  + cos(lat0)*cos(lat1)*sin(dltlng/2)**2
+    c = 2.0*atan2(sqrt(a), sqrt(1.0-a))
+    return R*c
+    
+
+# ----------------------------------------------------------------------------
+# Call main program
+# ----------------------------------------------------------------------------
+if __name__ == "__main__":
+    main(sys.argv[1:])
+
+
+# ----------------------------------------------------------------------------
+# End of file
+# ----------------------------------------------------------------------------

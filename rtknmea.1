@@ -1,0 +1,75 @@
+.TH rtknmea 1 "23 May 2010"
+.LO 1
+.SH NAME
+rtknmea \(hy collate and convert NMEA data output by rtkgps
+.SH SYNOPSIS
+.B rtknmea \fB\-h\fR
+.br
+.B rtknmea \fB\-c\fR [\fB\-n\fR] [\fB\-o\fR \fIpath\fR] \fIinfile\fR
+[\fIinfile\fR] ...
+.br
+.B rtknmea \fB\-g\fR [\fB\-n\fR] [\fB\-o\fR \fIpath\fR] [\fB\-t\fR
+\fItmin\fR] [\fB\-d\fR \fIdmin\fR]  \fIinfile\fR [\fIinfile\fR] ...
+.SH DESCRIPTION
+\fBrtknmea\fR collates or converts ...
+.SH OPTIONS
+.TP 8
+.B  \-h
+Display usage information.
+.TP 8
+.B  \-n
+Allow overwriting of existing files on output.
+.TP 8
+.B  \-o \fIpath\fR
+In collate mode \fIpath\fR must refer to a directory in which the
+output is written. If this option is not specified, output is written
+to the current directory. In GPX convert mode, \fIpath\fR is either a
+regular file into which all output is written, or a directory in which
+the default output file name is constructed. If no output path is
+specified, the output file name is constructed by substituting the
+\fB.nmea\fR extension of the first input file name for \fB.gpx\fR.
+.TP 8
+.B  \-c
+Select collate mode, in which the NMEA input files specified
+on the command line are all read, and the fixes contained therein are
+collated into a set of output files, one for each day for which a fix
+is present.
+.TP 8
+.B  \-g
+Select GPX convert mode, in which the NMEA input file(s) is (are)
+converted into GPX format. This conversion is provided since the
+conversion performed by \fBgpsbabel\fR on \fBrtkgps\fR NMEA files is
+not entirely correct, due to expected information which is not present
+in the logger data. Note that output is formatted according to GPX
+1.0, and not the more recent GPX 1.1, which lacks a standard tag for
+specifying a speed measurement. The GPX file may be validated using
+the command "\fBxmllint --noout --schema
+http://www.topografix.com/GPX/1/0/gpx.xsd\fR \fIgpxfile\fR". If other
+output formats are desired, the resulting GPX data may be used with
+\fBgpsbabel\fR to produce the desired format.
+.TP 8
+.B  \-t \fItmin\fR
+Apply time filter to track segment list, omitting fixes with a time
+difference less than \fItmin\fR seconds from the preceeding retained
+fix.
+.TP 8
+.B  \-d \fIdmin\fR
+Apply distance filter to track segment list, omitting fixes with a
+distance less than \fIdmin\fR metres from the preceeding retained fix.
+.SH AUTHOR
+Brendt Wohlberg <osspkg@gmail.com>
+.SH COPYRIGHT
+Copyright \(co 2010 Brendt Wohlberg <osspkg@gmail.com>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of version 2 of the GNU General Public License
+<http://www.gnu.org/licenses/gpl\-2.0.txt>.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+.SH "SEE ALSO"
+.BR rtkgps (1)
+.BR gpsbabel (1)
+.BR xmllint (1)

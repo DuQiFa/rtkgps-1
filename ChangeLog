@@ -1,0 +1,165 @@
+2012-02-04  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Modified gpsfmt.c functions print_log_nmea and
+	geoid_calc_correction to give more consistent floating points
+	results across different platforms. In configure.ac, also added
+	-ffloat-store to CFLAGS for the same purpose.
+	* Changed behaviour of read command with -u flag so that an empty
+	file is not skipped.
+	* Improved error handling in file_read function in rtkgps.c to
+	include deletion of the empty file into which the data was to be
+	read.
+
+2010-05-22  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Modified rtkgps -f flag to allow file number range
+	specification in addition to single number.
+
+2010-05-21  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Added rtknmea script to distribution and modified build
+	environment (autoconf and make) to install this script if python
+	present.
+
+2010-02-20  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Fixed memory used calculation (for status command) when logger
+	in memory overwrite mode.
+	* Changed standard output filename format so that filename
+	preserved after logfile numbering shifts when logger in memory
+	overwrite mode. Using the previous format, filenames were not
+	preserved, leading to possible data loss when downloading using
+	the -u flag.
+	* Modified behaviour of -u flag so that the final (partial)
+	logfile is still downloaded even when the -u flags is specified.
+
+2009-11-21  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Modified configure.ac to test for gcc flag unsupported in Maemo
+ 	SDK.
+	* Some updates to man page with respect to RGM-3800 support, and
+	added details of allowed baud rates for -r option.
+
+2009-11-15  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Added additional tests for incorrect command line arguments.
+
+2009-11-11  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* On downloading NMEA format data, device bluetooth address is
+	written in header when available.
+	* Fixed error in configure.ac (GEOIDCOR not substituted in
+	Makefile)
+
+2009-11-10  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Added command line flag requesting download of new files only.
+q
+2009-06-03  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* In print_log_nmea in gpsfmt.c, modified printed format of
+	latitude and longitude values to conform to NMEA standard.
+
+2009-05-30  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Incorporated patch from Martin Weber, supporting compilation
+	under Cygwin environment.
+	* Corrected a number of compiler warnings.
+
+2009-03-27  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Incorporated patch from Martin Weber, correcting firmware
+	version extraction for RGM3800 device.
+
+2009-03-21  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Incorporated patch from Martin Weber, after small edits to his
+	changes. Updated man page to reflect changes to rtkgps user
+	interface, and added acknowledgement to man page and README.
+
+2009-01-31  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Changed short int to int in a number of places in an attempt to
+	support a reported new RBT-2300 firmware which provides larger
+	files for download.
+
+2009-01-18  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* In serial_read_discard in serial.c, modified interface to allow
+	specification of non-zero starting position in buffer, as in
+	serial_read_discard.
+	* Modified data download function in rtkgps.c to backup existing
+	files before ovewriting them.
+
+2009-01-04  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Changed GPS mouse mode change command prior to log download to
+	correspond to the command issued by the most recent version of the
+	Royaltek log download software.
+
+2008-12-15  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Added detection of fixes with invalid time values.
+	* Modified warning handling so that only first warning of a
+	specific type is printed for each file, unless compiled with
+	debugging activated.
+	* Fixes with invalid values are now written using a custom NMEA
+	prefix instead of the standard GPGGA and GPRMC sentences.
+	* In NMEA output, added initial sentence, with custom prefix,
+	indicating version of rtkgps used to download data.
+
+2008-06-30  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* In get_data in rtkcom.c, modified upper bound on longitude in
+	out of range test.
+
+2008-06-29  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Fixed bug in selection of 'W' or 'E' longitude indicators in
+	NMEA output from function print_log_nmea in gpsfmt.c.
+
+2008-06-24  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Fixed bug in size of memory allocated for rsp array in
+	set_memory_erase function in rtkcom.c.
+	* Fixed bug in error reporting code in cmd_erase function in
+	rtkgps.c.
+
+2008-06-23  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Changed standard output filename to include "_part" for the last
+	file in memory, to indicate that the file is not complete at the
+	time of downloading.
+
+2008-06-21  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Fixed error in output checksums, and removed erroneous
+	additional comma at end of GPRMC sentence.
+
+2008-06-20  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Added -p option to read command requesting display of a text
+	progress bar during data download from the logger.
+
+2008-06-15  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Added command for determining current UTC date/time.
+	* In Makefile.in, for all object files, added a dependency on
+	Makefile to force rebuild on reconfigure.
+	* Added code for handling geoid correction data on big endian
+	architectures.
+
+2008-06-14  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Added code to compute geoid correction to altitude values.
+
+2008-04-20  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Added inf/nan and range checking of floating point values in log
+	data.
+
+2008-04-19  Brendt Wohlberg  <osspkg@gmail.com>
+
+	* Cleaned up checksum code in rtkcom.c.
+
+

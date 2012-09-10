@@ -1,0 +1,80 @@
+                      Significant changes in RtkGPS
+                      -----------------------------
+
+Version 0.07 (2012-02-04)
+-------------------------
+
+  * Changed compiler flags and geoid correction code to reduce
+    occurrences of small cross-platform differences in NMEA output.
+  * Improved error handling for read command to include deletion of
+    the empty file resulting from a failed read.
+  * Changed behaviour of read command with -u flag so that an empty
+    file is not skipped. 
+
+
+Version 0.06 (2010-06-04)
+-------------------------
+
+  * Fixed status command memory used calculation in the case that
+    memory has wrapped around in overwrite mode  
+  * Changed standard output filename format to be the date and time of
+    the first fix in the log file. This change was necessary since,
+    using the previous format, filenames were not preserved on memory
+    wrap around in overwrite mode, leading to possible data loss when
+    downloading using the -u flag.
+  * Modified behaviour of -u flag so that the final (partial)
+    logfile is still downloaded even when the -u flags is specified.
+  * Introduced rtknmea, a Python script for collating GPX files and
+    converting them to GPX format.
+
+
+Version 0.05 (2009-11-21)
+-------------------------
+
+  * Support for RGM-3800 device, contributed by Martin Weber.
+  * Fixed slight deviation from correct NMEA format in output.
+  * Source can be compiled under Cygwin environment.
+  * Command line flag requesting download of new files only.
+  * Device bluetooth address written in NMEA header, when available.
+
+
+Version 0.04 (2009-01-31)
+-------------------------
+
+  * Updated log download communication protocol.
+  * Modified data download command to backup existing files before
+    overwriting them.
+  * Made some code changes in an attempt to support changes reported
+    in a recent RBT-2300 firmware version. These changes have not been
+    verified to work, as a device with the new firmware is not
+    available for testing.
+
+
+Version 0.03 (2008-06-30)
+-------------------------
+
+  * Fixed error in selection of 'W' or 'E' flag in NMEA longitudes. 
+
+
+Version 0.02 (2008-06-25)
+-------------------------
+
+ * Added calculation of geoid correction to altitude values in
+   downloaded log data.
+ * Added date command to display current UTC date/time.
+ * Added -p option to read command to request display of a text
+   progress indicator during data download.
+ * Modified standard output filename to include "_part" for the last
+   file in memory, to indicate that the file is not complete at the
+   time of downloading.
+ * Fixed error in format of GPRMC NMEA sentences constructed by read
+   command.
+ * Fixed error in NMEA sentence checksums constructed by read command.
+ * Fixed memory allocation bug and error handling bug in
+   implementation of erase command.
+
+
+Version 0.01 (2008-05-10)
+-------------------------
+
+  * Initial release

@@ -1,0 +1,165 @@
+.TH rtkgps 1 "22 May 2010"
+.LO 1
+.SH NAME
+rtkgps \(hy download log files and read/set device status for certain
+models of Royaltek GPS logger
+.SH SYNOPSIS
+.B rtkgps 
+[\fB\-h\fR] [\fB\-v\fR] [\fB\-d\fR \fIdev\fR [\fB\-r\fR \fIrate\fR] | \fB\-b\fR \fIaddr\fR] \fIcommand\fR
+.SH DESCRIPTION
+\fBrtkgps\fR allows device configuration, status reporting, and log
+downloading for some models (RBT-2300 and RGM-3800) of Royaltek GPS
+loggers. RtkGPS provides a command line interface (unlike some of the
+other software for this device, which is GUI based), but should work
+on any Linux platform, including portable devices such as the Nokia
+770/800 series. Unless disabled at compile time, \fBrtkgps\fR corrects
+the altitude values read from the logger by estimating the EGM96 geoid
+undulations with respect to the WGS-84 ellipsoid.
+.SH GENERAL OPTIONS
+.TP 8
+.B  \-h
+Display usage information.
+.TP 8
+.B  \-v
+Verbose mode.
+.TP 8
+.B  \-d \fIdev\fR
+Connect to GPS logger via serial device \fIdev\fR.
+.TP 8
+.B  \-r \fIrate\fR
+Configure serial device to communicate at \fIrate\fR baud. Valid
+values are 50, 75, 150, 300, 600, 1200, 2400, 4800, 9600, 19200,
+38400, 57600, and 115200. The default is 57600 baud.
+.TP 8
+.B  \-b \fIaddr\fR
+Connect to GPS logger using bluetooth address \fIaddr\fR.
+.P
+If neither \fB\-d\fR nor \fB\-b\fR is specified, a bluetooth scan will
+be performed for a device with matching name; if a single matching
+device is found, the bluetooth address of that device will be used to
+open a connection.
+.SH COMMANDS
+.TP 8
+[\fB\-e\fR] \fBstatus\fR
+Display current GPS logger device status. Options are:
+.RS
+.TP 8
+\fB\-e\fR
+Display extended status information.
+.RE
+.TP 8
+.B  date
+Determine current UTC date/time.
+.TP 8
+.B  list
+List log files on GPS logger.
+.TP 8
+[\fB\-c\fR \fIflg\fR] [\fB\-l\fR \fIlgtp\fR] [\fB\-m\fR \fImfo\fR] [\fB\-s\fR \fIint\fR] \fBset\fR
+Set GPS logger parameters. Options are:
+.RS
+.TP 8
+\fB\-c\fR \fIflg\fR
+Specify real-time location output mode. Valid values of \fIflg\fR are
+\fB0\fR (disable) and \fB1\fR (enable).
+.RE
+.RS
+.TP 8
+\fB\-l\fR \fIlgtp\fR
+Specify log type. Valid values of \fIlgtp\fR are \fBtl\fR
+(time,location), \fBtla\fR (time,location,altitude), and \fBtlav\fR
+(time,location,altitude,velocity).
+.RE
+.RS
+.TP 8
+\fB\-m\fR \fImfo\fR
+Specify memory full behaviour. Valid values of \fImfo\fR are \fBo\fR
+(overwrite) and \fBs\fR (stop).
+.RE
+.RS
+.TP 8
+\fB\-s\fR \fIint\fR
+Specify sampling interval in seconds. Valid values of \fIint\fR are
+integers in the range from 1 to 60.
+.RE
+.TP 8
+[\fB\-n\fR] [\fB\-p\fR] [\fB\-o\fR \fIdest\fR [\fB\-u\fR]] [\fB\-f\fR \fInstr\fR] \fBread\fR 
+Retrieve a log file from the GPS logger. If a log file index is not
+specified, all log files are retrieved. Options are:
+.RS
+.TP 8
+\fB\-n\fR
+Write log in simple native text format instead of the default NMEA format.
+.RE
+.RS
+.TP 8
+\fB\-p\fR
+Display text progress bar during log file retrieval.
+.RE
+.RS
+.TP 8
+\fB\-o\fR \fIdest\fR
+Specify destination path. If \fIdest\fR is a directory, output is
+written to a file in that directory named according to a standard
+format, otherwise output is written to the specified file. The
+standard filename format is the date and time of the first fix in the
+log file.
+.RE
+.RS
+.TP 8
+\fB\-u\fR
+Skip downloading date for existing files. This flag is ignored for the
+last log file in memory since it is actively being extended, and will
+differ each time it is downloaded.
+.RE
+.RS
+.TP 8
+\fB\-f\fR \fInstr\fR
+Specify index number(s) of log file(s) to retrieve as a single file
+number, or a range in the format n-m (all integers between n and m,
+inclusive), -m (all integers from 0 to m, inclusive), or n- (all
+integers from n to the maximum file index, inclusive).
+.RE
+.TP 8
+[\fB\-y\fR] \fBerase\fR
+Erase all log files in GPS logger memory. Options are:
+.RS
+.TP 8
+\fB\-y\fR
+Don't ask for confirmation.
+.RE
+.SH CAVEATS
+This version of \fBrtkgps\fR should be used with caution, as it has
+not yet been extensively tested. Thus far the only testing has been on
+a little-endian architecture, with the RBT-2300 and RGM-3800. Code has
+been included to support big-endian architectures, but this has not
+been tested. Bug reports would be appreciated, as would reports from
+users attempting to use this software on a big-endian architecture.
+.SH AUTHOR
+Brendt Wohlberg <osspkg@gmail.com>
+.SH COPYRIGHT
+The geoid height data file \fBww15mgh.dat\fR was derived from the
+\fBww15mgh.grd\fR data obtained from
+<http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/egm96.html>,
+which appears (there is no explicit license information) to be in the
+public domain. The remainder of the \fBrtkgps\fR distribution is
+subject to the following copyright/license terms:
+
+Copyright \(co 2008-2010 Brendt Wohlberg <osspkg@gmail.com>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of version 2 of the GNU General Public License
+<http://www.gnu.org/licenses/gpl\-2.0.txt>.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+.SH ACKNOWLEDGMENT
+This software would not have been possible without the details of the
+communications protocol kindly provided by "Aeropic", author of Pocket
+PC software <http://aeropic.free.fr/RBT_2300> for the RBT-2300. A few
+additional commands in the communications protocol were discovered in
+the rgm3800.py software <http://www.kapet.de/rgm3800/> by Karsten
+Petersen. Martin Weber <martin dot weber at gmx dot info> pointed out
+some bugs and submitted numerous code improvements, including support
+for the RGM3800 and for compiling under the Cygwin environment.  

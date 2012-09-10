@@ -1,0 +1,73 @@
+				RtkGPS
+
+RtkGPS allows device configuration, status reporting, and log
+downloading for some models (RBT-2300 and RGM-3800) of Royaltek GPS
+loggers. RtkGPS provides a command line interface (unlike some of the
+other software for this device, which is GUI based), but should work
+on any Linux platform, including portable devices such as the Nokia
+770/800 series.
+
+Unless disabled at compile time (see the INSTALL file), RtkGPS
+corrects the altitude values read from the logger by estimating the
+EGM96 geoid undulations with respect to the WGS-84 ellipsoid. If
+building from source, this facility is not available when running the
+executable from the source directory, since the required data file is
+not accessible until installation by "make install".
+
+Similar Software:
+
+* Manufacturer supplied software from Royaltek, supporting Windows and
+  Palm platforms.
+* rgm3800-client (http://www.kbdbabel.org/rgm3800-client.c), by
+  Alexander Kurz, is designed for the RGM-3800 logger, with a USB
+  connection, and works under Linux.
+* rgm3800.py (http://www.kapet.de/rgm3800/), by Karsten Petersen,
+  is written in Python, and is designed for the RGM-3800 logger.
+* RBT_2300 (http://aeropic.free.fr/RBT_2300) by "Aeropic" is designed
+  for the RBT-2300, and works on Microsoft platforms (including Pocket
+  PC, not supported by the manufacturer software).
+* Jdatalog
+  (http://www.gpspassion.com/forumsen/topic.asp?TOPIC_ID=106198) by
+  "Denti13" is written in Java, and apparently works under Linux.
+
+Acknowledgments:
+
+* This software would not have been possible without the details of
+  the communications protocol kindly provided by "Aeropic", author of
+  the Pocket PC software RBT_2300.
+* A few additional commands in the communications protocol were
+  discovered in the rgm3800.py software by Karsten Petersen.
+* Some useful implementation ideas were copied from the rgm3800-client
+  software by Alexander Kurz.
+* The serial port code was written using the "Serial Programming Guide
+  for POSIX Operating Systems" guide by Michael R. Sweet.
+* The bluetooth scanning and socket connection code is based on the
+  example code by Albert Huang and Larry Rudolph (see
+  http://www.btessentials.com/examples/examples.html).
+* Thanks to Francois Deppierraz <francois at ctrlaltdel dot ch> for
+  pointing out an error (and providing data to help correct it) in 
+  the NMEA longitude output in version 0.02.
+* Thanks to Martin Weber <martin dot weber at gmx dot info> for
+  pointing out some bugs, and submitting numerous patches, including
+  improvements in support for the RGM3800, and support for compiling
+  under the Cygwin environment. 
+
+License:
+
+The geoid height data file ww15mgh.dat was derived from the geoid
+height file (ww15mgh.grd) obtained from
+http://earth-info.nga.mil/GandG/wgs84/gravitymod/egm96/egm96.html,
+which appears (there is no explicit license information) to be in the
+public domain. The remainder of this distribution is subject to the
+following copyright/license terms:
+
+Copyright © 2008-2010 Brendt Wohlberg <osspkg@gmail.com>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of version 2 of the GNU General Public License
+(http://www.gnu.org/licenses/gpl-2.0.txt).
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
