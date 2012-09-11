@@ -73,11 +73,9 @@ const char *gcstrerror(rcerror_t rcerr) {
  Return the number of bytes in the location record for the specified fix type.
  *****************************************************************************/
 unsigned short fix_size(unsigned short fxtyp) {
-  static uint8_t fxsz[3] = {sizeof(gps_fix_t)-2*sizeof(float),
-			  sizeof(gps_fix_t)-sizeof(float),
-			  sizeof(gps_fix_t)};
+  static uint8_t fxsz[5] = { 12, 16, 20, 24, 60 };
 
-  if (fxtyp < 3)
+  if (fxtyp < 5)
     return fxsz[fxtyp];
   else
     return 0;
@@ -94,6 +92,10 @@ const char *fxtyp_string(unsigned short fxtyp) {
   case 1: return "Time,Lat,Lng,Alt";
     break;
   case 2: return "Time,Lat,Lng,Alt,Vel";
+    break;
+  case 3: return "Time,Lat,Lng,Alt,Vel,Dist";
+    break;
+  case 4: return "Time,Lat,Lng,Alt,Vel,Dist,Stat";
     break;
   default: return "Invalid";
   }
@@ -809,6 +811,14 @@ int get_data(int fd, int memp, short int fxtyp, int nfix,
 	bswap_32(*(__uint32_t*)(char*)&gfxp[fn].alt);
       if (fxtyp > 1)
 	bswap_32(*(__uint32_t*)(char*)&gfxp[fn].vel);
+      if (fxtyp > 2)
+	bswap_32(*(__uint32_t*)(char*)&gfxp[fn].dist);
+      if (fxtyp > 3) {
+	bswap_16(*(__uint16_t*)(char*)&gfxp[fn].hdop);
+	bswap_16(*(__uint16_t*)(char*)&gfxp[fn].pdop);
+	bswap_16(*(__uint16_t*)(char*)&gfxp[fn].vdop);
+	bswap_32(*(__uint32_t*)(char*)&gfxp[fn].angle);
+      }
 #endif
 
       /* Do sanity check on fix values, calling warning callback

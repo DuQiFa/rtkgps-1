@@ -102,7 +102,7 @@ int main (int argc, char* argv[]) {
   const char* usage1 =
    "       -c <flg>  set real-time output (GPS mouse) mode "
                      "(0=disable, 1=enable)\n"
-   "       -l <lgtp> set log record type (tl, tla, or tlav)\n"
+   "       -l <lgtp> set log record type (tl, tla, tlav, tlavd or tlavds)\n"
    "       -m <mfo>  set memory overwrite behaviour (o=overwrite, s=stop)\n"
    "       -s <int>  set sampling interval in seconds\n"
    "       -n        output data in simple native text form\n"
@@ -270,9 +270,11 @@ void scan_cmdline(int argc, char* argv[], cmdlnopts_t *cmdopt) {
     }
     if (cmdopt->lgts != NULL && strcmp(cmdopt->lgts,"tl") != 0 &&
 	strcmp(cmdopt->lgts,"tla") != 0 &&
-	strcmp(cmdopt->lgts,"tlav") != 0) {
+	strcmp(cmdopt->lgts,"tlav") != 0 &&
+	strcmp(cmdopt->lgts,"tlavd") != 0 &&
+	strcmp(cmdopt->lgts,"tlavds") != 0) {
       fprintf(stderr, "rtkgps: Flag -l for set command may only take values"
-	      "\"tl\", \"tla\", or \"tlav\"\n");
+	      "\"tl\", \"tla\", \"tlav\", \"tlavd\" or \"tlavds\"\n");
       exit(1);
     }
     if (cmdopt->mfos != NULL && strcmp(cmdopt->mfos,"o") != 0 &&
@@ -553,6 +555,10 @@ void cmd_set(cmdlnopts_t *cmdopt) {
       fxtp = 1;
     else if (strcmp(cmdopt->lgts,"tlav") == 0)
       fxtp = 2;
+    else if (strcmp(cmdopt->lgts,"tlavd") == 0)
+      fxtp = 3;
+    else if (strcmp(cmdopt->lgts,"tlavds") == 0)
+      fxtp = 4;
     if (fxtp != status.fxtyp) {
       status.fxtyp = fxtp;
       cflg = 1;

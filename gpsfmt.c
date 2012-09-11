@@ -74,19 +74,25 @@ void print_hdr_nmea(FILE *stream, const char* btas) {
  *****************************************************************************/
 void print_log_nmea(FILE *stream, const logfile_t *lfp, const gps_fix_t *fxp,
 		    const float *gcp) {
-  int n;
+  int n, i, j;
   char *pgga;
   char gga[256];
   char *prmc;
   char rmc[256];
+  char *pgsv;
+  char gsv[256];
+  char *prtdist;
+  char rtdist[256];
   char time[32];
   char alt[32];
   char vel[16];
+  char shdop[16];
   char ltd, lnd;
-  double lat, lon;
+  double lat, lon, hdop, pdop, vdop, angle = 0;
+  int nsats;
 
   for (n = 0; n < lfp->nfix; n++) {
-    sprintf(time, "%02d%02d%02d.00", fxp[n].hour, fxp[n].min, fxp[n].sec);
+    sprintf(time, "%02d%02d%02d.000", fxp[n].hour, fxp[n].min, fxp[n].sec);
     lat = fabs(radtodegsec(fxp[n].lat));
     ltd = (fxp[n].lat >= 0)?'N':'S';
     lon = fabs(radtodegsec(fxp[n].lng));
@@ -96,7 +102,7 @@ void print_log_nmea(FILE *stream, const logfile_t *lfp, const gps_fix_t *fxp,
 	sprintf(alt, "%.1f,M,%.1f,M", round1p(fxp[n].alt-gcp[n]),
 		round1p(gcp[n]));
       else
-	sprintf(alt, "%.1f,M,,", round1p(fxp[n].alt));
+	sprintf(alt, "%.1f,M,0.0,M", round1p(fxp[n].alt));
     } else {
       sprintf(alt, ",,,");
     }
@@ -105,17 +111,58 @@ void print_log_nmea(FILE *stream, const logfile_t *lfp, const gps_fix_t *fxp,
     else
       vel[0] = '\0';
 
+    if (lfp->fxtyp > 3) {
+      nsats = fxp[n].nfix >> 4;
+      hdop = fxp[n].hdop / 100.0;
+      pdop = fxp[n].pdop / 100.0;
+      vdop = fxp[n].vdop / 100.0;
+      angle = fxp[n].angle;
+      sprintf(shdop, "%d,%.1f", nsats, hdop);
+    } else {
+      sprintf(shdop, ",");
+    }
+
     pgga = (fxp[n].unkwn == 0)?"$GPGGA":"$PRTK,BADFIX,GPGGA";
     prmc = (fxp[n].unkwn == 0)?"$GPRMC":"$PRTK,BADFIX,GPRMC";
+    pgsv = (fxp[n].unkwn == 0)?"$GPGSV":"$PRTK,BADFIX,GPGSV";
+    prtdist = (fxp[n].unkwn == 0)?"$RTDIST":"$PRTK,BADFIX,RTDIST";
 
-    sprintf(gga, "%s,%s,%09.4f,%c,%010.4f,%c,1,,,%s,,*", 
-	    pgga, time, lat, ltd, lon, lnd, alt);
+    sprintf(gga, "%s,%s,%09.4f,%c,%010.4f,%c,1,%s,%s,,0000*", 
+	    pgga, time, lat, ltd, lon, lnd, shdop, alt);
     fprintf(stream, "%s%02X\r\n", gga, string_checksum(gga));
 
-    sprintf(rmc, "%s,%s,A,%09.4f,%c,%010.4f,%c,%s,,%2.2s%2.2s%2.2s,,,*",
-	    prmc, time, lat, ltd, lon, lnd, vel, lfp->date+6, lfp->date+4, 
+    if (lfp->fxtyp > 3) {
+      int azimuth = 0;
+      int fnsats = 0;
+      for (j = 0; j < 12; j++)
+	if (fxp[n].sat[j * 2])
+	  fnsats++;
+
+      for (i = 1; i <= ((fnsats + 3) / 4); i++) {
+	sprintf(gsv, "%s,%d,%d,%d", pgsv, ((fnsats + 3) / 4), i, fnsats);
+	for (j = (i - 1) * 4; j < (i * 4); j++) {
+	  if (!fxp[n].sat[j * 2])
+	    continue;
+	  sprintf(gsv + strlen(gsv), ",%02d,45,%03d,%d", fxp[n].sat[j * 2], azimuth, fxp[n].sat[j * 2 + 1]);
+	  azimuth += 30;
+	}
+	strcat(gsv, "*");
+	fprintf(stream, "%s%02X\r\n", gsv, string_checksum(gsv));
+      }
+    }
+
+    sprintf(rmc, "%s,%s,A,%09.4f,%c,%010.4f,%c,%s,%.2f,%2.2s%2.2s%2.2s,,,E*",
+	    prmc, time, lat, ltd, lon, lnd, vel, angle, lfp->date+6, lfp->date+4, 
 	    lfp->date+2);
     fprintf(stream, "%s%02X\r\n", rmc, string_checksum(rmc));
+
+    if (lfp->fxtyp > 2) {
+      if (lfp->fxtyp > 3)
+	sprintf(rtdist, "%s,A,3,%.1f,%.1f,%.1f,%u*", prtdist, pdop, hdop, vdop, fxp[n].dist);
+      else
+	sprintf(rtdist, "%s,A,3,,,,%u*", prtdist, fxp[n].dist);
+      fprintf(stream, "%s%02X\r\n", rtdist, string_checksum(rtdist));
+    }
   }
 }
 
