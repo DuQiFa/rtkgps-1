@@ -66,7 +66,7 @@ typedef struct {
   int memp; 
 } logfile_t;
 
-typedef struct {
+typedef struct __attribute__((packed)) {
   uint8_t unkwn;
   uint8_t hour;
   uint8_t min;
@@ -75,6 +75,14 @@ typedef struct {
   float lng;
   float alt;
   float vel;
+  uint32_t dist;
+  uint8_t unk1;
+  uint8_t nfix;
+  uint16_t hdop;
+  uint16_t pdop;
+  uint16_t vdop;
+  uint8_t sat[24];
+  float angle;
 } gps_fix_t;
 
 typedef enum {
