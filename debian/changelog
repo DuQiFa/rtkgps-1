@@ -1,3 +1,9 @@
+rtkgps (0.07-2) unstable; urgency=low
+
+  * New patch 0001-feature-extended-formats.patch
+
+ -- Placido Revilla <placido.revilla@gmail.com>  Tue, 11 Sep 2012 18:06:13 +0200
+
 rtkgps (0.07-1) unstable; urgency=low
 
   * Initial release
