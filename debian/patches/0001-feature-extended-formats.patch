@@ -1,0 +1,228 @@
+From: =?UTF-8?q?Pl=C3=A1cido=20Revilla?= <placido.revilla@gmail.com>
+Date: Tue, 11 Sep 2012 17:56:08 +0200
+Subject: =?UTF-8?q?feature-extended-formats=0ASupport=20the=20extended=20for?=
+ =?UTF-8?q?mats=203=20and=204=20(distance=20and=20sats)?=
+
+---
+ gpsfmt.c |   63 ++++++++++++++++++++++++++++++++++++++++++++++++++++++--------
+ rtkcom.c |   18 ++++++++++++++----
+ rtkcom.h |   10 +++++++++-
+ rtkgps.c |   12 +++++++++---
+ 4 files changed, 87 insertions(+), 16 deletions(-)
+
+diff --git a/gpsfmt.c b/gpsfmt.c
+index 94f2c3f..c29bd93 100644
+--- a/gpsfmt.c
++++ b/gpsfmt.c
+@@ -74,19 +74,25 @@ void print_hdr_nmea(FILE *stream, const char* btas) {
+  *****************************************************************************/
+ void print_log_nmea(FILE *stream, const logfile_t *lfp, const gps_fix_t *fxp,
+ 		    const float *gcp) {
+-  int n;
++  int n, i, j;
+   char *pgga;
+   char gga[256];
+   char *prmc;
+   char rmc[256];
++  char *pgsv;
++  char gsv[256];
++  char *prtdist;
++  char rtdist[256];
+   char time[32];
+   char alt[32];
+   char vel[16];
++  char shdop[16];
+   char ltd, lnd;
+-  double lat, lon;
++  double lat, lon, hdop, pdop, vdop, angle = 0;
++  int nsats;
+ 
+   for (n = 0; n < lfp->nfix; n++) {
+-    sprintf(time, "%02d%02d%02d.00", fxp[n].hour, fxp[n].min, fxp[n].sec);
++    sprintf(time, "%02d%02d%02d.000", fxp[n].hour, fxp[n].min, fxp[n].sec);
+     lat = fabs(radtodegsec(fxp[n].lat));
+     ltd = (fxp[n].lat >= 0)?'N':'S';
+     lon = fabs(radtodegsec(fxp[n].lng));
+@@ -96,7 +102,7 @@ void print_log_nmea(FILE *stream, const logfile_t *lfp, const gps_fix_t *fxp,
+ 	sprintf(alt, "%.1f,M,%.1f,M", round1p(fxp[n].alt-gcp[n]),
+ 		round1p(gcp[n]));
+       else
+-	sprintf(alt, "%.1f,M,,", round1p(fxp[n].alt));
++	sprintf(alt, "%.1f,M,0.0,M", round1p(fxp[n].alt));
+     } else {
+       sprintf(alt, ",,,");
+     }
+@@ -105,17 +111,58 @@ void print_log_nmea(FILE *stream, const logfile_t *lfp, const gps_fix_t *fxp,
+     else
+       vel[0] = '\0';
+ 
++    if (lfp->fxtyp > 3) {
++      nsats = fxp[n].nfix >> 4;
++      hdop = fxp[n].hdop / 100.0;
++      pdop = fxp[n].pdop / 100.0;
++      vdop = fxp[n].vdop / 100.0;
++      angle = fxp[n].angle;
++      sprintf(shdop, "%d,%.1f", nsats, hdop);
++    } else {
++      sprintf(shdop, ",");
++    }
++
+     pgga = (fxp[n].unkwn == 0)?"$GPGGA":"$PRTK,BADFIX,GPGGA";
+     prmc = (fxp[n].unkwn == 0)?"$GPRMC":"$PRTK,BADFIX,GPRMC";
++    pgsv = (fxp[n].unkwn == 0)?"$GPGSV":"$PRTK,BADFIX,GPGSV";
++    prtdist = (fxp[n].unkwn == 0)?"$RTDIST":"$PRTK,BADFIX,RTDIST";
+ 
+-    sprintf(gga, "%s,%s,%09.4f,%c,%010.4f,%c,1,,,%s,,*", 
+-	    pgga, time, lat, ltd, lon, lnd, alt);
++    sprintf(gga, "%s,%s,%09.4f,%c,%010.4f,%c,1,%s,%s,,0000*", 
++	    pgga, time, lat, ltd, lon, lnd, shdop, alt);
+     fprintf(stream, "%s%02X\r\n", gga, string_checksum(gga));
+ 
+-    sprintf(rmc, "%s,%s,A,%09.4f,%c,%010.4f,%c,%s,,%2.2s%2.2s%2.2s,,,*",
+-	    prmc, time, lat, ltd, lon, lnd, vel, lfp->date+6, lfp->date+4, 
++    if (lfp->fxtyp > 3) {
++      int azimuth = 0;
++      int fnsats = 0;
++      for (j = 0; j < 12; j++)
++	if (fxp[n].sat[j * 2])
++	  fnsats++;
++
++      for (i = 1; i <= ((fnsats + 3) / 4); i++) {
++	sprintf(gsv, "%s,%d,%d,%d", pgsv, ((fnsats + 3) / 4), i, fnsats);
++	for (j = (i - 1) * 4; j < (i * 4); j++) {
++	  if (!fxp[n].sat[j * 2])
++	    continue;
++	  sprintf(gsv + strlen(gsv), ",%02d,45,%03d,%d", fxp[n].sat[j * 2], azimuth, fxp[n].sat[j * 2 + 1]);
++	  azimuth += 30;
++	}
++	strcat(gsv, "*");
++	fprintf(stream, "%s%02X\r\n", gsv, string_checksum(gsv));
++      }
++    }
++
++    sprintf(rmc, "%s,%s,A,%09.4f,%c,%010.4f,%c,%s,%.2f,%2.2s%2.2s%2.2s,,,E*",
++	    prmc, time, lat, ltd, lon, lnd, vel, angle, lfp->date+6, lfp->date+4, 
+ 	    lfp->date+2);
+     fprintf(stream, "%s%02X\r\n", rmc, string_checksum(rmc));
++
++    if (lfp->fxtyp > 2) {
++      if (lfp->fxtyp > 3)
++	sprintf(rtdist, "%s,A,3,%.1f,%.1f,%.1f,%u*", prtdist, pdop, hdop, vdop, fxp[n].dist);
++      else
++	sprintf(rtdist, "%s,A,3,,,,%u*", prtdist, fxp[n].dist);
++      fprintf(stream, "%s%02X\r\n", rtdist, string_checksum(rtdist));
++    }
+   }
+ }
+ 
+diff --git a/rtkcom.c b/rtkcom.c
+index 931aed7..08365b9 100644
+--- a/rtkcom.c
++++ b/rtkcom.c
+@@ -73,11 +73,9 @@ const char *gcstrerror(rcerror_t rcerr) {
+  Return the number of bytes in the location record for the specified fix type.
+  *****************************************************************************/
+ unsigned short fix_size(unsigned short fxtyp) {
+-  static uint8_t fxsz[3] = {sizeof(gps_fix_t)-2*sizeof(float),
+-			  sizeof(gps_fix_t)-sizeof(float),
+-			  sizeof(gps_fix_t)};
++  static uint8_t fxsz[5] = { 12, 16, 20, 24, 60 };
+ 
+-  if (fxtyp < 3)
++  if (fxtyp < 5)
+     return fxsz[fxtyp];
+   else
+     return 0;
+@@ -95,6 +93,10 @@ const char *fxtyp_string(unsigned short fxtyp) {
+     break;
+   case 2: return "Time,Lat,Lng,Alt,Vel";
+     break;
++  case 3: return "Time,Lat,Lng,Alt,Vel,Dist";
++    break;
++  case 4: return "Time,Lat,Lng,Alt,Vel,Dist,Stat";
++    break;
+   default: return "Invalid";
+   }
+ }
+@@ -809,6 +811,14 @@ int get_data(int fd, int memp, short int fxtyp, int nfix,
+ 	bswap_32(*(__uint32_t*)(char*)&gfxp[fn].alt);
+       if (fxtyp > 1)
+ 	bswap_32(*(__uint32_t*)(char*)&gfxp[fn].vel);
++      if (fxtyp > 2)
++	bswap_32(*(__uint32_t*)(char*)&gfxp[fn].dist);
++      if (fxtyp > 3) {
++	bswap_16(*(__uint16_t*)(char*)&gfxp[fn].hdop);
++	bswap_16(*(__uint16_t*)(char*)&gfxp[fn].pdop);
++	bswap_16(*(__uint16_t*)(char*)&gfxp[fn].vdop);
++	bswap_32(*(__uint32_t*)(char*)&gfxp[fn].angle);
++      }
+ #endif
+ 
+       /* Do sanity check on fix values, calling warning callback
+diff --git a/rtkcom.h b/rtkcom.h
+index 3d956ee..ebd1195 100644
+--- a/rtkcom.h
++++ b/rtkcom.h
+@@ -66,7 +66,7 @@ typedef struct {
+   int memp; 
+ } logfile_t;
+ 
+-typedef struct {
++typedef struct __attribute__((packed)) {
+   uint8_t unkwn;
+   uint8_t hour;
+   uint8_t min;
+@@ -75,6 +75,14 @@ typedef struct {
+   float lng;
+   float alt;
+   float vel;
++  uint32_t dist;
++  uint8_t unk1;
++  uint8_t nfix;
++  uint16_t hdop;
++  uint16_t pdop;
++  uint16_t vdop;
++  uint8_t sat[24];
++  float angle;
+ } gps_fix_t;
+ 
+ typedef enum {
+diff --git a/rtkgps.c b/rtkgps.c
+index bd711d5..b4d6911 100644
+--- a/rtkgps.c
++++ b/rtkgps.c
+@@ -102,7 +102,7 @@ int main (int argc, char* argv[]) {
+   const char* usage1 =
+    "       -c <flg>  set real-time output (GPS mouse) mode "
+                      "(0=disable, 1=enable)\n"
+-   "       -l <lgtp> set log record type (tl, tla, or tlav)\n"
++   "       -l <lgtp> set log record type (tl, tla, tlav, tlavd or tlavds)\n"
+    "       -m <mfo>  set memory overwrite behaviour (o=overwrite, s=stop)\n"
+    "       -s <int>  set sampling interval in seconds\n"
+    "       -n        output data in simple native text form\n"
+@@ -270,9 +270,11 @@ void scan_cmdline(int argc, char* argv[], cmdlnopts_t *cmdopt) {
+     }
+     if (cmdopt->lgts != NULL && strcmp(cmdopt->lgts,"tl") != 0 &&
+ 	strcmp(cmdopt->lgts,"tla") != 0 &&
+-	strcmp(cmdopt->lgts,"tlav") != 0) {
++	strcmp(cmdopt->lgts,"tlav") != 0 &&
++	strcmp(cmdopt->lgts,"tlavd") != 0 &&
++	strcmp(cmdopt->lgts,"tlavds") != 0) {
+       fprintf(stderr, "rtkgps: Flag -l for set command may only take values"
+-	      "\"tl\", \"tla\", or \"tlav\"\n");
++	      "\"tl\", \"tla\", \"tlav\", \"tlavd\" or \"tlavds\"\n");
+       exit(1);
+     }
+     if (cmdopt->mfos != NULL && strcmp(cmdopt->mfos,"o") != 0 &&
+@@ -553,6 +555,10 @@ void cmd_set(cmdlnopts_t *cmdopt) {
+       fxtp = 1;
+     else if (strcmp(cmdopt->lgts,"tlav") == 0)
+       fxtp = 2;
++    else if (strcmp(cmdopt->lgts,"tlavd") == 0)
++      fxtp = 3;
++    else if (strcmp(cmdopt->lgts,"tlavds") == 0)
++      fxtp = 4;
+     if (fxtp != status.fxtyp) {
+       status.fxtyp = fxtp;
+       cflg = 1;
+-- 
